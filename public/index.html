@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Stream Control</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    input, button, select {
+      margin: 10px;
+      padding: 10px;
+      font-size: 16px;
+    }
+    button {
+      cursor: pointer;
+    }
+    .video-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Live Stream Setup</h1>
+
+  <!-- Upload Video -->
+  <h2>Upload Video</h2>
+  <input type="file" id="upload" />
+  <button id="uploadBtn">Upload</button>
+
+  <hr />
+
+  <!-- Manage Uploaded Videos -->
+  <h2>Uploaded Videos</h2>
+  <div id="videoList"></div>
+
+  <hr />
+
+  <!-- Stream Control -->
+  <h2>Stream Control</h2>
+  <label for="streamkey">Stream Key:</label>
+  <input type="text" id="streamkey" placeholder="Enter YouTube stream key" />
+
+  <br />
+
+  <label for="selectedVideo">Select Video:</label>
+  <select id="selectedVideo">
+    <option value="">-- Select a Video --</option>
+  </select>
+
+  <br />
+
+  <button id="startBtn">Start Streaming</button>
+  <button id="stopBtn" style="display:none;">Stop Streaming</button>
+
+  <script>
+    const uploadInput = document.getElementById('upload');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const videoList = document.getElementById('videoList');
+    const selectedVideo = document.getElementById('selectedVideo');
+    const streamKeyInput = document.getElementById('streamkey');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
+    // Fetch uploaded videos
+    async function fetchVideos() {
+      const response = await fetch('/videos');
+      const videos = await response.json();
+      videoList.innerHTML = '';
+      selectedVideo.innerHTML = '<option value="">-- Select a Video --</option>';
+      videos.forEach(video => {
+        const div = document.createElement('div');
+        div.className = 'video-item';
+        div.innerHTML = `
+          <span>${video.name}</span>
+          <button onclick="deleteVideo('${video.name}')">Delete</button>
+        `;
+        videoList.appendChild(div);
+
+        const option = document.createElement('option');
+        option.value = video.name;
+        option.textContent = video.name;
+        selectedVideo.appendChild(option);
+      });
+    }
+
+    // Handle video upload
+    uploadBtn.addEventListener('click', async () => {
+      const file = uploadInput.files[0];
+      if (!file) {
+        alert('Please select a file to upload!');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('video', file);
+
+      await fetch('/upload', { method: 'POST', body: formData });
+      alert('Video uploaded successfully!');
+      fetchVideos();
+    });
+
+    // Delete a video
+    async function deleteVideo(filename) {
+      await fetch(`/videos/${filename}`, { method: 'DELETE' });
+      alert('Video deleted successfully!');
+      fetchVideos();
+    }
+
+    // Start streaming
+    startBtn.addEventListener('click', async () => {
+      const streamkey = streamKeyInput.value;
+      const video = selectedVideo.value;
+
+      if (!streamkey || !video) {
+        alert('Stream key and selected video are required!');
+        return;
+      }
+
+      await fetch('/start-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ streamkey, video })
+      });
+
+      alert('Streaming started!');
+      startBtn.style.display = 'none';
+      stopBtn.style.display = 'inline-block';
+    });
+
+    // Stop streaming
+    stopBtn.addEventListener('click', async () => {
+      await fetch('/stop-stream', { method: 'POST' });
+      alert('Streaming stopped!');
+      startBtn.style.display = 'inline-block';
+      stopBtn.style.display = 'none';
+    });
+
+    // Fetch videos on load
+    fetchVideos();
+  </script>
+</body>
+</html>
